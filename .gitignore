@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Models
+**/*.pt
+yolov8n.pt
+
+# Data & Snapshots
+backend/data/events/
+backend/data/events.db
+
+# Node / Frontend
+node_modules/
+dist/
+.eslintcache
+
+# Resources & Datasets (Very large)
+Resource/
+*.parquet
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+backend/backend.log
+*.log

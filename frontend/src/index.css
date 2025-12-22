@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0b0f14;
+  --color-tactical-green: #00ff41;
+  --color-tactical-amber: #ffb000;
+  --color-tactical-red: #ff0000;
+  --color-tactical-blue: #00d4ff;
+
+  --color-panel-bg: #121820;
+  --color-panel-border: #1a2430;
+
+  --font-mono: "JetBrains Mono", "Roboto Mono", monospace;
+
+  --shadow-glow: 0 0 10px rgba(0, 255, 65, 0.3);
+  --shadow-glow-red: 0 0 10px rgba(255, 0, 0, 0.3);
+  --shadow-glow-amber: 0 0 10px rgba(255, 176, 0, 0.3);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-tactical-green font-mono overflow-hidden;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-panel-bg border border-panel-border rounded-sm shadow-glow;
+  }
+
+  .panel-header {
+    @apply bg-panel-border/30 px-3 py-1 border-b border-panel-border text-xs font-bold tracking-widest uppercase;
+  }
+
+  .neon-text-green {
+    @apply text-tactical-green drop-shadow-[0_0_5px_rgba(0, 255, 65, 0.5)];
+  }
+
+  .neon-text-amber {
+    @apply text-tactical-amber drop-shadow-[0_0_5px_rgba(255, 176, 0, 0.5)];
+  }
+
+  .neon-text-red {
+    @apply text-tactical-red drop-shadow-[0_0_5px_rgba(255, 0, 0, 0.5)];
+  }
+
+  .btn-tactical {
+    @apply px-4 py-1 border border-tactical-green bg-tactical-green/10 hover:bg-tactical-green/20 transition-all text-sm uppercase tracking-wider active:scale-95;
+  }
+}
+
+@utility custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    @apply bg-panel-bg;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply bg-tactical-green/30;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-tactical-green/50;
+  }
+}
+
+@keyframes scan {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(100vh);
+  }
+}
+
+.animate-scan {
+  animation: scan 8s linear infinite;
+}
