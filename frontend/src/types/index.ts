@@ -17,6 +17,7 @@ export interface DetectionMessage {
     };
     threats: string[];
     boxes: Box[];
+    status: string;
     debug: {
         model_used: string;
     };

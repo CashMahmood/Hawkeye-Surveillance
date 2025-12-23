@@ -1,72 +1,52 @@
-# HAWKEYE Surveillance System
+# HAWKEYE: Tactical AI Surveillance System
 
-> **Tactical Real-Time Intelligent Monitoring Console**
+HAWKEYE is a high-performance, military-style surveillance HUD designed for real-time threat detection using ESP32-S3 hardware and YOLOv8 neural networks.
 
-Hawkeye is a professional-grade surveillance system designed to monitor live camera feeds and automatically detect potential threats using AI-based object detection. It is optimized for CPU-only environments and features a high-performance tactical dashboard.
+## 🦅 System Architecture
+- **Lens**: ESP32-S3 WROOM CAM (QVGA 320x240 @ 15fps)
+- **Neural Core**: FastAPI + Ultralytics YOLOv8 (Optimized for CPU)
+- **HUD**: React + Tailwind + Framer Motion (Tactical HUD)
+- **Persistence**: SQLite (Event Log) + Local Snapshots (Evidence)
 
-## 🏗️ Architecture
+## 📡 Hardware Profile (Verified)
+- **Stream URL**: `http://172.20.10.3:81/stream` (MJPEG)
+- **Exposure**: AEC Sensor ON / AEC DSP OFF / AGC ON
+- **Lens**: CAMERA_MODEL_ESP32S3_EYE
 
-```text
-+---------------------+       +---------------------------+       +------------------------+
-|    ESP32-CAM        | ----> |      FastAPI Backend      | <---> |   React Tactical UI    |
-| (MJPEG Stream)      | stream| (YOLOv8 Inference Engine)  | WS/API| (Framer Motion HUD)    |
-+---------------------+       +---------------------------+       +------------------------+
-                                        |             |
-                                        v             v
-                                [ SQLite DB ]   [ Local JPG Storage ]
-```
+## 🚀 One-Click Launch (Windows)
+1. Ensure your ESP32-CAM is powered and on the `172.20.10.3` network.
+2. Double-click `run.bat` in the project root.
+3. Access the HUD at `http://localhost:5173`.
 
-## 🚀 Quick Start
+## 🧠 Threat Intelligence Protocol
+- **WEAPON_DETECTED**: Identification of firearms, knives, or blunt objects.
+- **PERSON_WITH_WEAPON**: Association logic triggered if weapon <60px from person.
+- **SUSPICIOUS_GROUP**: Triggered if 4+ individuals cluster for >4 seconds.
 
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-
-### 1-Click Launch (Windows)
-Double-click `run.bat` in the root directory. This will:
-1. Initialize the backend server (Port 8000).
-2. Initialize the frontend console (Port 5173).
-3. Open the dashboard in your default browser.
-
-### Manual Setup
-
-#### Backend
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # venv\Scripts\activate on Windows
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-#### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## ⚙️ Configuration
-Modify `backend/app/config.py` to customize system behavior:
-- `ESP_STREAM_URL`: Address of your camera stream.
-- `CONF_THRESH`: Detection confidence (0.35 default).
-- `FRAME_SKIP`: Frames to skip between AI passes (2 default).
-- `GROUP_DISTANCE_PX`: Distance threshold for suspicious group clustering.
-
-## 🛡️ Threat Detection Logic
-1. **WEAPON_DETECTED**: Triggered when a firearm, knife, or other weapon is identified.
-2. **PERSON_WITH_WEAPON**: Association logic triggered when a weapon is within proximity of an individual.
-3. **SUSPICIOUS_GROUP**: Rule-based detection for $N$ individuals clustered in a tight radius for $T$ seconds.
-
-## 🛠️ Tech Stack
-- **Inference**: Ultralytics YOLOv8 (Nano)
-- **Backend**: FastAPI, OpenCV, SQLite
-- **Frontend**: React, Vite, Tailwind CSS, Framer Motion, Lucide Icons
-
-## 📜 Known Limitations
-- optimized for CPU; high person counts may increase latency.
-- MJPEG stream stability depends on network quality.
-- Group detection is distance-based; depth perception is estimated from 2D coordinates.
+## ✅ Operational Checklist (Production)
+- [x] Backend connects to `172.20.10.3:81/stream`
+- [x] Ingest rate throttled to ~5-8 FPS (Stable CPU)
+- [x] HUD displays "ONLINE // LINKED" status
+- [x] Deduplication (3s cooldown) prevents alert spam
+- [x] Snapshots saved to `backend/data/events/`
 
 ---
-**HAWKEYE SURVEILLANCE // OPERATIONAL**
+
+## Production Specification (v2.0 Refined)
+
+### 🧬 Intelligence Profile
+- **Weapon Threshold**: Strict **0.70 (70%)** confidence.
+- **Whitelist**: Guns, knives, bats, and tactical weapons.
+- **Gating**: Persistence (3 cycles), Area Gating (<40% frame), and Proximity Association.
+
+### 💾 Data Retention
+- **Max Storage**: **100 events** (Rolling).
+- **Auto-Purge**: Oldest DB rows and image files are deleted when capacity is exceeded.
+- **Live Sync**: Archive auto-refreshes every 10 seconds.
+
+### ⚡ Performance
+- **Ingest**: Multi-threaded fetcher (Zero-Lag).
+- **Processing**: Target 15 FPS (Inference Decoupled).
+- **Scaling**: Precision BBox alignment using dynamic metadata.
+
+**HAWKEYE // PROTECTING PERIPHERAL BOUNDARIES**

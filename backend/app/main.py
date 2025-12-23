@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 import os
 import time
 
-from .config import ESP_STREAM_URL, FRAME_SKIP, SAVE_DIR
+from .config import ESP_STREAM_URL, FRAME_SKIP, SAVE_DIR, CONF_THRESH_PERSON, CONF_THRESH_WEAPON
 from .db import get_events, get_event_by_id
 from .inference import DetectionSystem
 
@@ -23,58 +23,89 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Detection System
-detector = DetectionSystem()
+# Detection System (Lazy loaded to avoid blocking startup)
+detector = None
+
+def load_detector_async():
+    global detector, latest_detections
+    latest_detections["status"] = "MODEL_SYNC"
+    print("[SYSTEM] ACQUIRING NEURAL WEIGHTS...")
+    detector = DetectionSystem()
+    
+    m_gen = os.path.basename(detector.model_gen.ckpt_path) if hasattr(detector.model_gen, 'ckpt_path') and detector.model_gen.ckpt_path else "yolov8m"
+    m_spec = os.path.basename(detector.model_weapons.ckpt_path) if hasattr(detector.model_weapons, 'ckpt_path') and detector.model_weapons.ckpt_path else "custom"
+    
+    latest_detections["debug"]["model_used"] = f"Hybrid ({m_gen} + {m_spec})"
+    print(f"[SYSTEM] NEURAL CONVERGENCE COMPLETE: {latest_detections['debug']['model_used']}")
 
 # State
 is_camera_connected = False
 latest_frame = None
+last_frame_time = 0
 latest_detections = {
     "timestamp": "",
     "fps": 0,
     "counts": {"persons": 0, "weapons": 0},
     "threats": [],
     "boxes": [],
-    "status": "DISCONNECTED",
-    "debug": {"model_used": os.path.basename(detector.model.ckpt_path) if hasattr(detector.model, 'ckpt_path') and detector.model.ckpt_path else "yolov8n.pt"}
+    "status": "INITIALIZING",
+    "frame_dims": [0, 0],
+    "debug": {"model_used": "yolov8m (pending)"}
 }
 clients = set()
 
 # Mount static files for events
 app.mount("/images", StaticFiles(directory=SAVE_DIR), name="images")
 
-def video_ingestion_loop():
-    global latest_frame, latest_detections, is_camera_connected
-    
+def video_fetcher():
+    """Constantly grabs frames from the ESP32-CAM to clear buffers."""
+    global latest_frame, is_camera_connected
     while True:
+        print(f"[STREAM] ATTEMPTING LINK: {ESP_STREAM_URL}")
         cap = cv2.VideoCapture(ESP_STREAM_URL)
         if not cap.isOpened():
-            print(f"Failed to connect to stream: {ESP_STREAM_URL}. Retrying in 5s...")
             is_camera_connected = False
-            latest_detections["status"] = "DISCONNECTED"
-            time.sleep(5)
+            latest_frame = None
+            print(f"[STREAM] LINK FAILURE: Destination {ESP_STREAM_URL} unreachable.")
+            time.sleep(3)
             continue
-
-        print(f"Connected to stream: {ESP_STREAM_URL}")
+            
         is_camera_connected = True
-        latest_detections["status"] = "CONNECTED"
-        frame_count = 0
-        start_time = time.time()
+        print(f"[STREAM] UPLINK ESTABLISHED -> {ESP_STREAM_URL}")
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         while True:
-            t1 = time.time()
             ret, frame = cap.read()
-            
-            if not ret:
-                print("Stream lost. Reconnecting...")
+            if not ret or frame is None:
                 is_camera_connected = False
-                latest_detections["status"] = "DISCONNECTED"
+                latest_frame = None # Clear stale frame
                 break
-                
-            latest_frame = frame.copy()
+            latest_frame = frame
+            last_frame_time = time.time()
+            # No sleep here - grab as fast as possible
             
-            if frame_count % FRAME_SKIP == 0:
-                boxes, persons, weapons = detector.detect(frame)
+        cap.release()
+        time.sleep(1)
+
+def video_processing_loop():
+    """Handles inference and broadcasting at a stable rate."""
+    global latest_detections, latest_frame
+    frame_count = 0
+    start_time = time.time()
+    
+    while True:
+        t1 = time.time()
+        
+        if latest_frame is not None:
+            frame = latest_frame.copy()
+            
+            # Update dims immediately if not set
+            if latest_detections["frame_dims"] == [0, 0]:
+                h, w = frame.shape[:2]
+                latest_detections["frame_dims"] = [w, h]
+
+            if frame_count % FRAME_SKIP == 0 and detector is not None:
+                boxes, persons, weapons, dims = detector.detect(frame)
                 threats = detector.process_threats(frame, boxes, persons, weapons)
                 
                 end_time = time.time()
@@ -90,33 +121,50 @@ def video_ingestion_loop():
                     },
                     "threats": threats,
                     "boxes": boxes,
-                    "status": "CONNECTED"
+                    "status": "CONNECTED",
+                    "frame_dims": dims
                 })
-                
-                # Broadcast detections
-                for client in list(clients):
-                    try:
-                        asyncio.run_coroutine_threadsafe(client.send_json(latest_detections), loop)
-                    except Exception:
-                        pass # Ignore send errors for specific clients
-            
-            frame_count += 1
-            
-            # FPS Clamping to ~15 FPS max to save CPU
-            elapsed = time.time() - t1
-            wait = max(0.01, 0.066 - elapsed) # Target ~15 FPS
-            time.sleep(wait)
+            elif detector is None:
+                latest_detections["status"] = "MODEL_SYNC"
+            else:
+                # Connected but skipped frame
+                latest_detections["status"] = "CONNECTED"
+        else:
+            # No frame available
+            latest_detections["fps"] = 0
+            if is_camera_connected:
+                # Camera thread says linked, but no frames (possible buffer stall or auth)
+                latest_detections["status"] = "MODEL_SYNC" if detector is None else "UPLINK_STALL"
+            else:
+                latest_detections["status"] = "OFFLINE"
+                latest_detections["frame_dims"] = [0, 0]
 
-        cap.release()
-        time.sleep(1)
+        # Constant Broadcast (Heartbeat)
+        for client in list(clients):
+            try:
+                asyncio.run_coroutine_threadsafe(client.send_json(latest_detections), loop)
+            except Exception:
+                pass
+        
+        frame_count += 1
+        elapsed = time.time() - t1
+        time.sleep(max(0.01, 0.066 - elapsed))
 
-# Background Thread for Video
+# Start background threads
 loop = asyncio.get_event_loop()
-threading.Thread(target=video_ingestion_loop, daemon=True).start()
+threading.Thread(target=load_detector_async, daemon=True).start()
+threading.Thread(target=video_fetcher, daemon=True).start()
+threading.Thread(target=video_processing_loop, daemon=True).start()
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": latest_detections["debug"]["model_used"]}
+    return {
+        "status": "ok", 
+        "stream": "CONNECTED" if is_camera_connected else "DISCONNECTED",
+        "last_frame_age": round(time.time() - last_frame_time, 1) if last_frame_time > 0 else "N/A",
+        "model": latest_detections["debug"]["model_used"],
+        "clients": len(clients)
+    }
 
 @app.get("/events")
 def list_events():
@@ -155,7 +203,8 @@ def gen_frames():
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-        time.sleep(0.1)
+        else:
+            time.sleep(0.01)
 
 @app.get("/video")
 def video_feed():

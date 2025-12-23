@@ -24,17 +24,11 @@ const Events: React.FC = () => {
 
     useEffect(() => {
         fetchEvents();
+        const interval = setInterval(fetchEvents, 10000); // Auto-refresh every 10s
+        return () => clearInterval(interval);
     }, []);
 
-    const eventTypes = useMemo(() => {
-        const types = new Set(events.map(e => e.type));
-        return ['ALL', ...Array.from(types)];
-    }, [events]);
-
-    const filteredEvents = useMemo(() => {
-        if (filterType === 'ALL') return events;
-        return events.filter(e => e.type === filterType);
-    }, [events, filterType]);
+    // Tactical log displays all recorded priority incidents
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleString([], {
@@ -64,16 +58,6 @@ const Events: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-panel-bg border border-panel-border px-3 py-1.5 rounded-sm">
-                        <Filter className="w-4 h-4 opacity-50" />
-                        <select
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
-                            className="bg-transparent border-none focus:outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
-                        >
-                            {eventTypes.map(t => <option key={t} value={t} className="bg-panel-bg">{t.replace(/_/g, ' ')}</option>)}
-                        </select>
-                    </div>
                     <button
                         onClick={fetchEvents}
                         className="btn-tactical flex items-center gap-2 h-10 px-4"
@@ -91,7 +75,7 @@ const Events: React.FC = () => {
                         <RefreshCw className="w-16 h-16 mb-4 animate-spin" />
                         <p className="uppercase tracking-[0.5em] font-black">Scanning Storage Media...</p>
                     </div>
-                ) : filteredEvents.length === 0 ? (
+                ) : events.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full opacity-30">
                         <Calendar className="w-16 h-16 mb-4" />
                         <p className="uppercase tracking-[0.2em] font-black">Zero Priority Incidents Found</p>
@@ -99,7 +83,7 @@ const Events: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-8">
                         <AnimatePresence>
-                            {filteredEvents.map(event => (
+                            {events.map(event => (
                                 <motion.div
                                     key={event.id}
                                     layout
@@ -111,7 +95,7 @@ const Events: React.FC = () => {
                                 >
                                     <div className="relative aspect-video bg-black overflow-hidden border-b border-tactical-green/10">
                                         <img
-                                            src={`http://localhost:8000/images/${event.image_path}`}
+                                            src={`http://localhost:8000/images/${event.image_path}?t=${new Date(event.timestamp).getTime()}`}
                                             alt={event.type}
                                             className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                                         />
@@ -176,7 +160,7 @@ const Events: React.FC = () => {
                                     <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #00ff41 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
                                     <img
-                                        src={`http://localhost:8000/images/${selectedEvent.image_path}`}
+                                        src={`http://localhost:8000/images/${selectedEvent.image_path}?t=${new Date(selectedEvent.timestamp).getTime()}`}
                                         alt="Full Evidence"
                                         className="max-h-full max-w-full object-contain shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-white/5 z-10"
                                     />

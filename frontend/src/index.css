@@ -15,6 +15,10 @@
   --shadow-glow: 0 0 10px rgba(0, 255, 65, 0.3);
   --shadow-glow-red: 0 0 10px rgba(255, 0, 0, 0.3);
   --shadow-glow-amber: 0 0 10px rgba(255, 176, 0, 0.3);
+
+  --drop-shadow-neon-green: 0 0 5px rgba(0, 255, 65, 0.5);
+  --drop-shadow-neon-amber: 0 0 5px rgba(255, 176, 0, 0.5);
+  --drop-shadow-neon-red: 0 0 5px rgba(255, 0, 0, 0.5);
 }
 
 @layer base {
@@ -33,15 +37,18 @@
   }
 
   .neon-text-green {
-    @apply text-tactical-green drop-shadow-[0_0_5px_rgba(0, 255, 65, 0.5)];
+    @apply text-tactical-green;
+    filter: drop-shadow(var(--drop-shadow-neon-green));
   }
 
   .neon-text-amber {
-    @apply text-tactical-amber drop-shadow-[0_0_5px_rgba(255, 176, 0, 0.5)];
+    @apply text-tactical-amber;
+    filter: drop-shadow(var(--drop-shadow-neon-amber));
   }
 
   .neon-text-red {
-    @apply text-tactical-red drop-shadow-[0_0_5px_rgba(255, 0, 0, 0.5)];
+    @apply text-tactical-red;
+    filter: drop-shadow(var(--drop-shadow-neon-red));
   }
 
   .btn-tactical {

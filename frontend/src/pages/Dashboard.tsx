@@ -60,14 +60,32 @@ const Dashboard: React.FC = () => {
             canvas.width = img.clientWidth;
             canvas.height = img.clientHeight;
 
-            const scaleX = canvas.width / 640;
-            const scaleY = canvas.height / 480;
+            const [frameW, frameH] = detection.frame_dims && detection.frame_dims[0] > 0
+                ? detection.frame_dims
+                : [320, 240];
+
+            const scaleX = canvas.width / frameW;
+            const scaleY = canvas.height / frameH;
+
+            // DEBUG LOGGING (as requested)
+            if (window.location.search.includes('debug')) {
+                console.log(`[HAWKEYE DEBUG] Frame: ${frameW}x${frameH} | Canvas: ${canvas.width}x${canvas.height} | Scales: ${scaleX.toFixed(3)},${scaleY.toFixed(3)}`);
+            }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             detection.boxes.forEach(box => {
-                const isWeapon = box.label.toLowerCase().includes('person') ? false : true;
-                const color = isWeapon ? '#ff0000' : '#00ff41';
+                // Tactical Classification (V3.7 Refined)
+                const isPerson = box.label.toUpperCase().includes('PERSON');
+                const isWeapon = !isPerson;
+
+                // Synchronize with Backend Tactical Threshold (0.40)
+                const shouldDraw = isPerson ? (box.conf >= 0.20) : (box.conf >= 0.40);
+
+                if (!shouldDraw) return;
+
+                // Tactical Color Palette: Green for Contacts, Red for Threats
+                const color = isPerson ? '#00ff41' : '#ff0000';
 
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
@@ -79,9 +97,9 @@ const Dashboard: React.FC = () => {
                     (box.y2 - box.y1) * scaleY
                 );
 
-                // Label bg
+                // Advanced HUD Overlay (Signature & Confidence)
                 ctx.fillStyle = `${color}cc`;
-                const labelText = `${box.label.toUpperCase()} [${Math.round(box.conf * 100)}%]`;
+                const labelText = box.label.toUpperCase(); // Backend now sends full [CLS/SRC] CONF
                 const textWidth = ctx.measureText(labelText).width;
                 ctx.fillRect(box.x1 * scaleX, box.y1 * scaleY - 15, textWidth + 10, 15);
 
@@ -105,8 +123,23 @@ const Dashboard: React.FC = () => {
                             HAWKEYE <span className="text-tactical-green/40">Surveillance</span>
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
-                            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-tactical-green animate-pulse' : 'bg-tactical-red'}`} />
-                            <span className="text-[10px] font-bold tracking-[0.2em]">{isConnected ? "ONLINE // LINKED" : "OFFLINE // SEEKING"}</span>
+                            <div className={`w-2 h-2 rounded-full ${isConnected
+                                ? (detection?.status === 'CONNECTED'
+                                    ? 'bg-tactical-green animate-pulse'
+                                    : (detection?.status === 'MODEL_SYNC'
+                                        ? 'bg-tactical-amber animate-pulse'
+                                        : (detection?.status === 'OFFLINE' ? 'bg-tactical-red' : 'bg-tactical-amber animate-pulse')))
+                                : 'bg-tactical-red'
+                                }`} />
+                            <span className="text-[10px] font-bold tracking-[0.2em]">
+                                {isConnected
+                                    ? (detection?.status === 'CONNECTED'
+                                        ? "ONLINE // LINKED"
+                                        : (detection?.status === 'MODEL_SYNC'
+                                            ? "NEURAL // SYNCING"
+                                            : (detection?.status === 'OFFLINE' ? "UPLINK // OFFLINE" : "STREAM // STALLED")))
+                                    : "OFFLINE // DISCONNECTED"}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -176,7 +209,7 @@ const Dashboard: React.FC = () => {
 
                         {/* Scale Indicator */}
                         <div className="absolute bottom-4 right-4 z-10 bg-black/60 px-2 py-1 border border-tactical-green/20 text-[9px]">
-                            RESOLUTION: 640x480
+                            RESOLUTION: 320x240 (QVGA)
                         </div>
 
                         {/* Legend */}
@@ -283,12 +316,6 @@ const Dashboard: React.FC = () => {
                         <TargetCard label="INDIVIDUALS" count={detection?.counts.persons || 0} icon={Users} color="green" />
                         <TargetCard label="THREAT_SIGS" count={detection?.counts.weapons || 0} icon={Target} color="red" />
 
-                        <div className="pt-4 space-y-3 border-t border-tactical-green/20">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-tactical-green/40">Subsystem Protocol</h3>
-                            <ProtocolRow label="GRP_ANALYTICS" status="ACTIVE" />
-                            <ProtocolRow label="PROXIMITY_MAPPING" status="ACTIVE" />
-                            <ProtocolRow label="SNAPSHOT_AUTO" status="STANDBY" />
-                        </div>
 
                         <div className="mt-8">
                             <div className="text-[10px] uppercase font-bold text-tactical-green/40 mb-2">Threat Legend</div>
@@ -315,12 +342,6 @@ const TargetCard = ({ label, count, icon: Icon, color }: any) => (
     </div>
 );
 
-const ProtocolRow = ({ label, status }: any) => (
-    <div className="flex justify-between items-center text-[10px] font-bold">
-        <span className="opacity-60">{label}</span>
-        <span className="text-tactical-green tracking-tighter shadow-glow px-2 py-0.5 border border-tactical-green/30 bg-tactical-green/5 font-black">{status}</span>
-    </div>
-);
 
 const LegendItem = ({ color, label }: any) => (
     <div className="flex items-center gap-3">
