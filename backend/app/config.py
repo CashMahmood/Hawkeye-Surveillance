@@ -1,7 +1,7 @@
 import os
 
 # ESP32-CAM Configuration (Production Verified)
-ESP_STREAM_URL = "http://172.20.10.3:81/stream"
+ESP_STREAM_URL = "http://172.20.10.2:81/stream"
 
 # Model Paths
 MODEL_PATH_PRIMARY = os.path.abspath("./models/threat_yolov8n/weights/best.pt")
