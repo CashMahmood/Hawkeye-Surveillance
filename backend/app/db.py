@@ -107,5 +107,28 @@ def get_event_by_id(event_id):
     conn.close()
     return dict(row) if row else None
 
+def delete_event(event_id):
+    event = get_event_by_id(event_id)
+    if not event:
+        return False
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Delete image file
+    if event['image_path']:
+        full_path = os.path.join(SAVE_DIR, event['image_path'])
+        if os.path.exists(full_path):
+            try:
+                os.remove(full_path)
+            except Exception as e:
+                print(f"Error deleting image file: {e}")
+                
+    # Delete DB row
+    cursor.execute("DELETE FROM events WHERE id = ?", (event_id,))
+    conn.commit()
+    conn.close()
+    return True
+
 # Initialize on import
 init_db()

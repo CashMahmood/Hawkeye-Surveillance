@@ -9,7 +9,7 @@ import os
 import time
 
 from .config import ESP_STREAM_URL, FRAME_SKIP, SAVE_DIR, CONF_THRESH_PERSON, CONF_THRESH_WEAPON
-from .db import get_events, get_event_by_id
+from .db import get_events, get_event_by_id, delete_event
 from .inference import DetectionSystem
 
 app = FastAPI(title="Hawkeye Surveillance System")
@@ -32,10 +32,10 @@ def load_detector_async():
     print("[SYSTEM] ACQUIRING NEURAL WEIGHTS...")
     detector = DetectionSystem()
     
-    m_gen = os.path.basename(detector.model_gen.ckpt_path) if hasattr(detector.model_gen, 'ckpt_path') and detector.model_gen.ckpt_path else "yolov8m"
-    m_spec = os.path.basename(detector.model_weapons.ckpt_path) if hasattr(detector.model_weapons, 'ckpt_path') and detector.model_weapons.ckpt_path else "custom"
+    p_model = os.path.basename(detector.model_person.ckpt_path) if hasattr(detector.model_person, 'ckpt_path') and detector.model_person.ckpt_path else "yolov8n"
+    w_model = os.path.basename(detector.model_weapon.ckpt_path) if hasattr(detector.model_weapon, 'ckpt_path') and detector.model_weapon.ckpt_path else "subh775"
     
-    latest_detections["debug"]["model_used"] = f"Hybrid ({m_gen} + {m_spec})"
+    latest_detections["debug"]["model_used"] = f"Person:{p_model} | Weapon:{w_model}"
     print(f"[SYSTEM] NEURAL CONVERGENCE COMPLETE: {latest_detections['debug']['model_used']}")
 
 # State
@@ -148,7 +148,8 @@ def video_processing_loop():
         
         frame_count += 1
         elapsed = time.time() - t1
-        time.sleep(max(0.01, 0.066 - elapsed))
+        # Target ~20 FPS for smoother HUD tracking
+        time.sleep(max(0.005, 0.050 - elapsed))
 
 # Start background threads
 loop = asyncio.get_event_loop()
@@ -185,6 +186,13 @@ def get_event_image(event_id: int):
     
     path = os.path.join(SAVE_DIR, event['image_path'])
     return FileResponse(path)
+
+@app.delete("/events/{event_id}")
+def remove_event(event_id: int):
+    success = delete_event(event_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"status": "success", "message": f"Event {event_id} deleted"}
 
 @app.websocket("/ws/detections")
 async def websocket_endpoint(websocket: WebSocket):

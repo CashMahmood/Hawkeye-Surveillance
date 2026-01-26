@@ -1,0 +1,96 @@
+================================================================================
+          PROJECT HAWKEYE: AI-POWERED TACTICAL SURVEILLANCE SYSTEM
+================================================================================
+TECHNICAL REPORT // LAB REPORT // THESIS DOCUMENTATION
+Version: 4.1 (Stable Release)
+Date: 2025-12-23
+
+1. PROJECT OVERVIEW
+-------------------
+Hawkeye is a high-performance, real-time AI surveillance system optimized for 
+tactical and long-range detection (e.g., drone surveillance, bird's-eye view). 
+The system integrates a hybrid neural architecture to simultaneously detect 
+Human Silhouettes (Persons) and Specialized Threats (Guns, Knives, Sticks) while 
+maintaining extreme resilience against environmental false positives (e.g., furniture).
+
+2. CORE HARDWARE & COMMUNICATIONS
+---------------------------------
+*   Camera Ingest: ESP32-S3 WROOM CAM (Tactical configuration).
+*   Transmission: Wireless Wi-Fi Link (Uplink/Downlink architecture).
+*   Stream Protocol: HTTP/MJPEG (QVGA 320x240 optimized for low latency).
+*   Operation: Real-time 24/7 autonomous monitoring.
+
+3. SOFTWARE STACK & ARCHITECTURE
+--------------------------------
+*   Backend Engine: Python 3.x / FastAPI (Asynchronous framework).
+*   Frontend HUD: React.js (Vite) / Tailwind CSS / Framer Motion.
+*   Inference Engine: YOLOv8 (Ultralytics Research Model).
+*   Database & Storage: SQLite / Local Filesystem (JPEG/DB JSON).
+*   Concurrency: Python Multi-threading (Inference, Video Fetching, and UI Logic 
+    operating in parallel for zero lag).
+
+4. HYBRID NEURAL ARCHITECTURE (INFERENCE LOGIC)
+-----------------------------------------------
+The "Hawkeye Brain" utilizes a dual-model convergence approach:
+A.  General Intelligence Model (GEN): YOLOv8m pre-trained on COCO dataset for 
+    high-accuracy person and general object detection.
+B.  Specialized Weapon Model (SPEC): A custom-trained YOLOv8 head optimized 
+    for firearms (rifles, pistols), blades (knives, machetes), and clubs (bats, sticks).
+
+5. KEY INNOVATION: TACTICAL ACCURACY REFINEMENTS
+----------------------------------------------
+To achieve professional-grade performance, the following logic heads were implemented:
+
+*   IoU Deduplication (Spatial Merging):
+    Prevents "double-counting" of targets. If both models see a person, they 
+    calculate the "Intersection over Union" (IoU). If overlap is >45%, the boxes 
+    are merged into a single 1:1 contact.
+
+*   Static Background Suppression (Spatial Tracking):
+    A spatial-temporal filter that prevents furniture (closets, wardrobes) from 
+    triggering alerts. If a weapon detection stays in the exact same spot (static) 
+    for >50 frames without a person nearby, it is suppressed as "Environmental Noise."
+
+*   Box-Proximity Association (Armed Contact Tracking):
+    Instead of simple distance checks, the AI verifies if a weapon bounding box 
+    touches or is within 80px of a person's box perimeter. This accurately 
+    identifies when a person is "Handholding" a threat.
+
+*   Temporal Voting Persistence (Flicker Resistance):
+    Requires a majority vote (2 out of 5 frames) for a weapon to be confirmed. 
+    This handles physical jitters or light reflections on dummy guns/knives.
+
+*   Tactical Area Filtering:
+    Rejects any weapon detection that covers >25% of the frame. This eliminates 
+    oversized false positives caused by close-up furniture or walls.
+
+6. INCIDENT MANAGEMENT & ARCHIVE
+--------------------------------
+*   Dual-Threshold Policy:
+    - Live HUD Sensitivity: 0.40 (High sensitivity for situational awareness).
+    - Archival "Lock" Threshold: 0.70 (Strict certainty needed for database saving).
+*   Retention Policy: Rolling repository system keeping the latest 100 high-fidelity 
+    incident snapshots to prevent disk overflow.
+*   Data Integrity: Automated purge system that syncs the SQLite database with the 
+    physical disk; if an image is manually deleted, the DB record is cleaned.
+
+7. SYSTEM WORKFLOW (PIPELINE)
+-----------------------------
+1.  Ingest: RTSP/HTTP MJPEG stream captured by OpenCV thread.
+2.  Parallel Inference: Dual-heads run concurrent detection on GPU/CPU.
+3.  Transformation: BBoxes scaled from inference space (640px) to HUD space (320px).
+4.  Filtering: Static Suppression and Area Filtering applied.
+5.  Threat Assessment: Association logic pairs weapons to persons.
+6.  Dispatch: Live telemetry sent via WebSockets to React HUD.
+7.  Archival: Trigger high-conf save to SQLite and Disk.
+
+8. CONCLUSION
+-------------
+Hawkeye represents a robust fusion of computer vision and tactical surveillance. 
+By prioritizing dynamic threat detection over static environmental data, it 
+provides a reliable, high-uptime security solution capable of operating under 
+complex indoor and outdoor conditions.
+
+================================================================================
+END OF PROJECT DOCUMENTATION // HAWKEYE v4.1
+================================================================================

@@ -22,6 +22,19 @@ const Events: React.FC = () => {
         }
     };
 
+    const deleteEvent = async (id: number) => {
+        if (!window.confirm("ARE YOU SURE YOU WANT TO PURGE THIS RECORD FROM THE DATABASE?")) return;
+
+        try {
+            await axios.delete(`http://localhost:8000/events/${id}`);
+            setSelectedEvent(null);
+            fetchEvents();
+        } catch (error) {
+            console.error("Failed to delete event:", error);
+            alert("SECURE PURGE FAILED: DATABASE_ACCESS_ERROR");
+        }
+    };
+
     useEffect(() => {
         fetchEvents();
         const interval = setInterval(fetchEvents, 10000); // Auto-refresh every 10s
@@ -223,6 +236,14 @@ const Events: React.FC = () => {
                                         >
                                             Acknowledge Log
                                         </button>
+
+                                        <button
+                                            onClick={() => deleteEvent(selectedEvent.id)}
+                                            className="w-full h-12 mt-4 border-2 border-tactical-red bg-tactical-red/5 hover:bg-tactical-red hover:text-black transition-all font-black uppercase tracking-[0.3em] active:scale-95 shadow-[0_0_15px_rgba(255,0,0,0.1)]"
+                                        >
+                                            Purge Incident
+                                        </button>
+
                                         <p className="text-[9px] text-center mt-3 opacity-40 uppercase tracking-widest">Operator signature required</p>
                                     </div>
                                 </div>
